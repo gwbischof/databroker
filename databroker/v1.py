@@ -1654,7 +1654,7 @@ def _from_v0_config(config, auto_register, name):
 _mongo_clients = {}  # cache of pymongo.MongoClient instances
 
 
-def load_transforms(transforms):
+def _load_transforms(transforms):
     from importlib import import_module
     if transforms:
         return {key: import_module(value) for key, value in transforms}
