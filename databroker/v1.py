@@ -1568,7 +1568,7 @@ def _pretty_print_time(timestamp):
     return '{ago} ({date})'.format(ago=ago, date=dt)
 
 
-def from_config(config, auto_register=True, name=None):
+def from_config(config, auto_register=True, name=None, transforms=None):
     """
     Build (some version of) a Broker instance from a v0 configuration dict.
 
@@ -1586,7 +1586,7 @@ def from_config(config, auto_register=True, name=None):
         from . import v0
         return v0.Broker.from_config(config, auto_register, name)
     try:
-        catalog = _from_v0_config(config, auto_register, name)
+        catalog = _from_v0_config(config, auto_register, name, transforms)
     except Exception as exc:
         warnings.warn(
             f"Failed to load config. Falling back to v0."
@@ -1603,7 +1603,7 @@ def from_config(config, auto_register=True, name=None):
         raise ValueError(f"Cannot handle api_version {forced_version}")
 
 
-def _from_v0_config(config, auto_register, name):
+def _from_v0_config(config, auto_register, name, transforms):
     mds_module = config['metadatastore']['module']
     if mds_module != 'databroker.headersource.mongo':
         raise NotImplementedError(
@@ -1642,7 +1642,8 @@ def _from_v0_config(config, auto_register, name):
     root_map = config.get('root_map')
 
     # Get transformers.
-    transforms = _load_transforms(config.get('transforms'))
+    if not transforms:
+        transforms = _load_transforms(config.get('transforms'))
 
     return BlueskyMongoCatalog(metadatastore_db, asset_registry_db,
                                handler_registry=handler_registry,
