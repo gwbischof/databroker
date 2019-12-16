@@ -1641,7 +1641,7 @@ def _from_v0_config(config, auto_register, name, transforms):
         handler_registry[spec] = dotted_object
     root_map = config.get('root_map')
 
-    # Get transformers.
+    # Get transforms.
     if not transforms:
         transforms = _load_transforms(config.get('transforms'))
 
