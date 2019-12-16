@@ -1640,12 +1640,26 @@ def _from_v0_config(config, auto_register, name):
         dotted_object = '.'.join((contents['module'], contents['class']))
         handler_registry[spec] = dotted_object
     root_map = config.get('root_map')
+
+    # Get transformers.
+    transforms = _load_transforms(config.get('transforms'))
+
     return BlueskyMongoCatalog(metadatastore_db, asset_registry_db,
                                handler_registry=handler_registry,
                                root_map=root_map,
-                               name=name)
+                               name=name,
+                               transforms=transforms)
+
 
 _mongo_clients = {}  # cache of pymongo.MongoClient instances
+
+
+def load_transforms(transforms):
+    from importlib import import_module
+    if transforms:
+        return {key: import_module(value) for key, value in transforms}
+    else:
+        return None
 
 
 def _get_mongo_client(host, port):
