@@ -16,10 +16,11 @@ class Broker(Catalog):
     """
 
     def __init__(self, *, handler_registry=None, root_map=None,
-                 filler_class=event_model.Filler, **kwargs):
+                 filler_class=event_model.Filler, transforms=None, **kwargs):
 
         self._root_map = root_map
         self._filler_class = filler_class
+        self._transforms = transforms
         if handler_registry is None:
             handler_registry = discover_handlers()
         self._handler_registry = parse_handler_registry(handler_registry)

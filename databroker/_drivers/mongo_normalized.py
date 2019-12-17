@@ -301,6 +301,7 @@ class BlueskyMongoCatalog(Broker):
             asset_registry_db=self._asset_registry_db,
             query=query,
             handler_registry=self._handler_registry,
+            transforms=self._transforms,
             root_map=self._root_map,
             filler_class=self._filler_class,
             name='search results',

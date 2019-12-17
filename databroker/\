@@ -1,63 +1,67 @@
-import event_model
 import glob
-import msgpack
-import msgpack_numpy
+import json
 import os
 import pathlib
+import event_model
 
 from ..in_memory import BlueskyInMemoryCatalog
-
-
-UNPACK_OPTIONS = dict(object_hook=msgpack_numpy.decode,
-                      raw=False,
-                      max_buffer_size=1_000_000_000)
+from ..core import tail
 
 
 def gen(filename):
     """
-    A msgpack generator
+    A JSONL file generator.
 
     Parameters
     ----------
     filename: str
-        msgpack file to laod.
+        JSONL file to load.
     """
-    with open(filename, 'rb') as file:
-        yield from msgpack.Unpacker(file, **UNPACK_OPTIONS)
+    with open(filename, 'r') as file:
+        for line in file:
+            name, doc = json.loads(line)
+            yield (name, doc)
 
 
 def get_stop(filename):
     """
-    Returns the stop_doc of a Bluesky msgpack file.
+    Returns the stop_doc of a Bluesky JSONL file.
 
     The stop_doc is always the last line of the file.
 
     Parameters
     ----------
     filename: str
-        msgpack file to load.
+        JSONL file to load.
     Returns
     -------
     stop_doc: dict or None
         A Bluesky run_stop document or None if one is not present.
     """
-    with open(filename, 'rb') as file:
-        for name, doc in msgpack.Unpacker(file, **UNPACK_OPTIONS):
-            if name == 'stop':
-                return doc
+    stop_doc = None
+    lastline, = tail(filename)
+    if lastline:
+        try:
+            name, doc = json.loads(lastline)
+        except json.JSONDecodeError:
+            ...
+            # stop_doc will stay None if it can't be decoded correctly.
+        else:
+            if (name == 'stop'):
+                stop_doc = doc
+    return stop_doc
 
 
-class BlueskyMsgpackCatalog(BlueskyInMemoryCatalog):
-    name = 'bluesky-msgpack-catalog'  # noqa
+class BlueskyJSONLCatalog(BlueskyInMemoryCatalog):
+    name = 'bluesky-jsonl-catalog'  # noqa
 
-    def __init__(self, paths, *,
-                 handler_registry=None, root_map=None,
+    def __init__(self, paths, *, handler_registry=None, root_map=None,
                  filler_class=event_model.Filler, query=None,
-                 transforms=None, **kwargs):
+                 transforms, **kwargs):
         """
-        This Catalog is backed by msgpack files.
+        This Catalog is backed by a newline-delimited JSON (jsonl) file.
 
-        Each chunk the file is expected to be a list with two elements,
+        Each line of the file is expected to be a JSON list with two elements,
         the document name (type) and the document itself. The documents are
         expected to be in chronological order.
 
@@ -88,6 +92,7 @@ class BlueskyMsgpackCatalog(BlueskyInMemoryCatalog):
         root_map: dict, optional
             This is passed to Filler or whatever class is given in the
             ``filler_class`` parameter below.
+
             str -> str mapping to account for temporarily moved/copied/remounted
             files.  Any resources which have a ``root`` in ``root_map`` will be
             loaded using the mapped ``root``.
@@ -119,13 +124,14 @@ class BlueskyMsgpackCatalog(BlueskyInMemoryCatalog):
                     # This file has not changed since last time we loaded it.
                     continue
                 self._filename_to_mtime[filename] = mtime
-                with open(filename, 'rb') as file:
-                    unpacker = msgpack.Unpacker(file, **UNPACK_OPTIONS)
+                with open(filename, 'r') as file:
                     try:
-                        name, start_doc = next(unpacker)
-                    except StopIteration:
-                        # Empty file, maybe being written to currently
-                        continue
+                        name, start_doc = json.loads(file.readline())
+                    except json.JSONDecodeError as e:
+                        if not file.readline():
+                            # Empty file, maybe being written to currently
+                            continue
+                        raise e
                 stop_doc = get_stop(filename)
                 self.upsert(start_doc, stop_doc, gen, (filename,), {})
 
@@ -155,7 +161,7 @@ class BlueskyMsgpackCatalog(BlueskyInMemoryCatalog):
 
     def _get_serializer(self):
         "This is used internally by v1.Broker. It may be removed in future."
-        from suitcase.msgpack import Serializer
+        from suitcase.jsonl import Serializer
         from event_model import RunRouter
         path, *_ = self.paths
         directory = os.path.dirname(path)

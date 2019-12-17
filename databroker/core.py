@@ -821,7 +821,13 @@ class BlueskyRun(intake.catalog.Catalog):
             self.fillers['yes'].handler_registry, inplace=True)
         self.fillers['delayed'] = get_filler(coerce='delayed')
         self._entry = entry
-        self._transforms = transforms
+
+        transformable = ('start', 'stop', 'resource', 'descriptor')
+        if transforms is None:
+            self._transforms = {key: lambda doc: doc for key in transformable}
+        else:
+            self._transforms = transforms
+
         super().__init__(**kwargs)
 
     def __repr__(self):
@@ -841,11 +847,11 @@ class BlueskyRun(intake.catalog.Catalog):
 
     def _load(self):
         # Count the total number of documents in this run.
-        self._run_start_doc = transforms['start'](self._get_run_start())
-        self._run_stop_doc = transforms['stop'](self._get_run_stop())
-        self._descriptors = [transforms['descriptor'](descriptor)
+        self._run_start_doc = self._transforms['start'](self._get_run_start())
+        self._run_stop_doc = self._transforms['stop'](self._get_run_stop())
+        self._descriptors = [self._transforms['descriptor'](descriptor)
                              for descriptor in self._get_event_descriptors()]
-        self._resources = [transforms['resource'](resource)
+        self._resources = [self._transforms['resource'](resource)
                            for resource in self._get_resources()] or []
         self.metadata.update({'start': self._run_start_doc})
         self.metadata.update({'stop': self._run_stop_doc})
@@ -1085,7 +1091,7 @@ s event_page documents
         # Should figure out a way so that self._resources doesn't have to be
         # all of the Run's resources.
         self._resources = [transforms['resource'](resource)
-                           for resource in metadata.get('resources', [])
+                           for resource in metadata.get('resources', [])]
         self.metadata.update({'start': self._run_start_doc})
         self.metadata.update({'stop': self._run_stop_doc})
         self._partitions = None
@@ -1256,7 +1262,7 @@ class DocumentCache(event_model.DocumentRouter):
 
 class BlueskyRunFromGenerator(BlueskyRun):
 
-    def __init__(self, gen_func, gen_args, gen_kwargs, get_filler, **kwargs):
+    def __init__(self, gen_func, gen_args, gen_kwargs, get_filler, transforms, **kwargs):
 
         document_cache = DocumentCache()
 
@@ -1308,6 +1314,7 @@ class BlueskyRunFromGenerator(BlueskyRun):
             lookup_resource_for_datum=lookup_resource_for_datum,
             get_datum_pages=get_datum_pages,
             get_filler=get_filler,
+            transforms=transforms,
             **kwargs)
 
 
