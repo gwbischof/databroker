@@ -26,6 +26,7 @@ class Broker(Catalog):
         self._handler_registry = parse_handler_registry(handler_registry)
         self.handler_registry = event_model.HandlerRegistryView(
             self._handler_registry)
+        self._transforms = transforms
 
         self._get_filler = partial(self._filler_class,
                                    handler_registry=self.handler_registry,

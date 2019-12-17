@@ -800,7 +800,7 @@ class BlueskyRun(intake.catalog.Catalog):
                  get_datum_pages,
                  get_filler,
                  entry,
-                 transforms,
+                 transforms=None,
                  **kwargs):
         # All **kwargs are passed up to base class. TODO: spell them out
         # explicitly.
@@ -825,8 +825,6 @@ class BlueskyRun(intake.catalog.Catalog):
         transformable = ('start', 'stop', 'resource', 'descriptor')
         if transforms is None:
             self._transforms = {key: lambda doc: doc for key in transformable}
-        else:
-            self._transforms = transforms
 
         super().__init__(**kwargs)
 
@@ -1262,7 +1260,8 @@ class DocumentCache(event_model.DocumentRouter):
 
 class BlueskyRunFromGenerator(BlueskyRun):
 
-    def __init__(self, gen_func, gen_args, gen_kwargs, get_filler, transforms, **kwargs):
+    def __init__(self, gen_func, gen_args, gen_kwargs, get_filler,
+                 transforms=None, **kwargs):
 
         document_cache = DocumentCache()
 

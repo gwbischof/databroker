@@ -15,7 +15,7 @@ class BlueskyInMemoryCatalog(Broker):
 
     def __init__(self, *, handler_registry=None, root_map=None,
                  filler_class=event_model.Filler, query=None,
-                 transforms, **kwargs):
+                 transforms=None, **kwargs):
         """
         This Catalog is backed by Python collections in memory.
 
@@ -64,7 +64,6 @@ class BlueskyInMemoryCatalog(Broker):
         """
         self._query = query or {}
         self._uid_to_run_start_doc = {}
-        self._transforms = transforms
 
         super().__init__(handler_registry=handler_registry,
                          root_map=root_map, filler_class=filler_class,
@@ -109,6 +108,7 @@ class BlueskyInMemoryCatalog(Broker):
         cat = type(self)(
             query=query,
             handler_registry=self._handler_registry,
+            transforms=self._transforms,
             root_map=self._root_map,
             name='search results',
             getenv=self.getenv,

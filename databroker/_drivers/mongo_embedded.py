@@ -289,6 +289,7 @@ class BlueskyMongoCatalog(Broker):
             datastore_db=self._db,
             query=query,
             handler_registry=self._handler_registry,
+            transforms=self._transforms,
             root_map=self._root_map,
             filler_class=self._filler_class,
             name='search results',
