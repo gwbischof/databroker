@@ -137,7 +137,8 @@ class _Entries(collections.abc.Mapping):
 class BlueskyMongoCatalog(Broker):
     def __init__(self, metadatastore_db, asset_registry_db, *,
                  handler_registry=None, root_map=None,
-                 filler_class=event_model.Filler, query=None, **kwargs):
+                 filler_class=event_model.Filler, query=None,
+                 transforms=None, **kwargs):
         """
         This Catalog is backed by a pair of MongoDBs with "layout 1".
 
@@ -206,9 +207,8 @@ class BlueskyMongoCatalog(Broker):
         self._query = query or {}
 
         super().__init__(handler_registry=handler_registry,
-                         root_map=root_map,
-                         filler_class=filler_class,
-                         **kwargs)
+                         root_map=root_map, filler_class=filler_class,
+                         transforms=transforms, **kwargs)
 
     def _get_run_stop(self, run_start_uid):
         doc = self._run_stop_collection.find_one(

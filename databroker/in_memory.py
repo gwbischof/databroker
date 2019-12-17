@@ -14,8 +14,8 @@ class BlueskyInMemoryCatalog(Broker):
     name = 'bluesky-run-catalog'  # noqa
 
     def __init__(self, *, handler_registry=None, root_map=None,
-                 filler_class=event_model.Filler,
-                 query=None, **kwargs):
+                 filler_class=event_model.Filler, query=None,
+                 transforms=None, **kwargs):
         """
         This Catalog is backed by Python collections in memory.
 
@@ -66,9 +66,8 @@ class BlueskyInMemoryCatalog(Broker):
         self._uid_to_run_start_doc = {}
 
         super().__init__(handler_registry=handler_registry,
-                         root_map=root_map,
-                         filler_class=filler_class,
-                         **kwargs)
+                         root_map=root_map, filler_class=filler_class,
+                         transforms=transforms, **kwargs)
 
     def upsert(self, start_doc, stop_doc, gen_func, gen_args, gen_kwargs):
         if not Query(self._query).match(start_doc):

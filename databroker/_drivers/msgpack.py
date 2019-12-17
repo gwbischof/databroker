@@ -52,8 +52,8 @@ class BlueskyMsgpackCatalog(BlueskyInMemoryCatalog):
 
     def __init__(self, paths, *,
                  handler_registry=None, root_map=None,
-                 filler_class=event_model.Filler,
-                 query=None, **kwargs):
+                 filler_class=event_model.Filler, query=None,
+                 transforms=None, **kwargs):
         """
         This Catalog is backed by msgpack files.
 
@@ -107,10 +107,8 @@ class BlueskyMsgpackCatalog(BlueskyInMemoryCatalog):
         self.paths = paths
         self._filename_to_mtime = {}
         super().__init__(handler_registry=handler_registry,
-                         root_map=root_map,
-                         filler_class=filler_class,
-                         query=query,
-                         **kwargs)
+                         root_map=root_map, filler_class=filler_class,
+                         query=query, transforms=transforms, **kwargs)
 
     def _load(self):
         for path in self.paths:
