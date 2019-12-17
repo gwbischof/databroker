@@ -800,6 +800,7 @@ class BlueskyRun(intake.catalog.Catalog):
                  get_datum_pages,
                  get_filler,
                  entry,
+                 transforms,
                  **kwargs):
         # All **kwargs are passed up to base class. TODO: spell them out
         # explicitly.
@@ -820,6 +821,7 @@ class BlueskyRun(intake.catalog.Catalog):
             self.fillers['yes'].handler_registry, inplace=True)
         self.fillers['delayed'] = get_filler(coerce='delayed')
         self._entry = entry
+        self._transforms = transforms
         super().__init__(**kwargs)
 
     def __repr__(self):
@@ -839,10 +841,12 @@ class BlueskyRun(intake.catalog.Catalog):
 
     def _load(self):
         # Count the total number of documents in this run.
-        self._run_start_doc = self._get_run_start()
-        self._run_stop_doc = self._get_run_stop()
-        self._descriptors = self._get_event_descriptors()
-        self._resources = self._get_resources() or []
+        self._run_start_doc = transforms['start'](self._get_run_start())
+        self._run_stop_doc = transforms['stop'](self._get_run_stop())
+        self._descriptors = [transforms['descriptor'](descriptor)
+                             for descriptor in self._get_event_descriptors()]
+        self._resources = [transforms['resource'](resource)
+                           for resource in self._get_resources()] or []
         self.metadata.update({'start': self._run_start_doc})
         self.metadata.update({'stop': self._run_stop_doc})
 
@@ -882,6 +886,7 @@ class BlueskyRun(intake.catalog.Catalog):
                 lookup_resource_for_datum=self._lookup_resource_for_datum,
                 get_datum_pages=self._get_datum_pages,
                 fillers=self.fillers,
+                transforms=self._transforms,
                 metadata={'descriptors': descriptors,
                           'resources': self._resources})
             self._entries[stream_name] = intake.catalog.local.LocalCatalogEntry(
@@ -983,6 +988,7 @@ class BlueskyRun(intake.catalog.Catalog):
             "Reading the BlueskyRun itself is not supported. Instead read one "
             "its entries, representing individual Event Streams. You can see "
             "the entries using list(YOUR_VARIABLE_HERE). Tab completion may "
+
             "also help, if available.")
 
     def to_dask(self):
@@ -1009,7 +1015,8 @@ class BlueskyEventStream(DataSourceMixin):
         Expected signature ``get_event_descriptors() -> List[EventDescriptors]``
     get_event_pages : callable
         Expected signature ``get_event_pages(descriptor_uid) -> generator``
-        where ``generator`` yields event_page documents
+        where ``generator`` yield
+s event_page documents
     get_event_count : callable
         Expected signature ``get_event_count(descriptor_uid) -> int``
     get_resource : callable
@@ -1046,6 +1053,7 @@ class BlueskyEventStream(DataSourceMixin):
                  lookup_resource_for_datum,
                  get_datum_pages,
                  fillers,
+                 transforms,
                  metadata,
                  include=None,
                  exclude=None,
@@ -1069,14 +1077,15 @@ class BlueskyEventStream(DataSourceMixin):
 
         super().__init__(metadata=metadata, **kwargs)
 
-        self._run_stop_doc = self._get_run_stop()
-        self._run_start_doc = self._get_run_start()
-        self._descriptors =  [descriptor for descriptor in
-                              metadata.get('descriptors', [])
+        self._run_stop_doc = transforms['stop'](self._get_run_stop())
+        self._run_start_doc = transforms['start'](self._get_run_start())
+        self._descriptors =  [transforms['descriptor'](descriptor)
+                              for descriptor in metadata.get('descriptors', [])
                               if descriptor.get('name') == self._stream_name]
         # Should figure out a way so that self._resources doesn't have to be
         # all of the Run's resources.
-        self._resources = metadata.get('resources', [])
+        self._resources = [transforms['resource'](resource)
+                           for resource in metadata.get('resources', [])
         self.metadata.update({'start': self._run_start_doc})
         self.metadata.update({'stop': self._run_stop_doc})
         self._partitions = None

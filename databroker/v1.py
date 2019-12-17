@@ -1670,14 +1670,15 @@ def _load_transforms(transforms):
      {'descriptor': <package.module.ClassName>}
 
      """
-     if transforms is None:
-        return {}
-
      result = {}
 
-     for name, transform in transforms.items():
-         module_name, _, class_name = transform.rpartition('.')
-         function = getattr(importlib.import_module(module_name), class_name)
+     for name in ('start', 'stop', 'resource', 'descriptor'):
+         transform = transforms.get(name)
+         if isinstance(transform, str):
+            module_name, _, class_name = transform.rpartition('.')
+            function = getattr(importlib.import_module(module_name), class_name)
+         else:
+            function = lambda doc: doc
          result[name] = function
      return result
 
