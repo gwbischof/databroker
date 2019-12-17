@@ -1568,7 +1568,7 @@ def _pretty_print_time(timestamp):
     return '{ago} ({date})'.format(ago=ago, date=dt)
 
 
-def from_config(config, auto_register=True, name=None, transforms=None):
+def from_config(config, auto_register=True, name=None):
     """
     Build (some version of) a Broker instance from a v0 configuration dict.
 
@@ -1586,7 +1586,7 @@ def from_config(config, auto_register=True, name=None, transforms=None):
         from . import v0
         return v0.Broker.from_config(config, auto_register, name)
     try:
-        catalog = _from_v0_config(config, auto_register, name, transforms)
+        catalog = _from_v0_config(config, auto_register, name)
     except Exception as exc:
         warnings.warn(
             f"Failed to load config. Falling back to v0."
@@ -1603,7 +1603,7 @@ def from_config(config, auto_register=True, name=None, transforms=None):
         raise ValueError(f"Cannot handle api_version {forced_version}")
 
 
-def _from_v0_config(config, auto_register, name, transforms):
+def _from_v0_config(config, auto_register, name):
     mds_module = config['metadatastore']['module']
     if mds_module != 'databroker.headersource.mongo':
         raise NotImplementedError(
@@ -1641,9 +1641,7 @@ def _from_v0_config(config, auto_register, name, transforms):
         handler_registry[spec] = dotted_object
     root_map = config.get('root_map')
 
-    # Get transforms.
-    if not transforms:
-        transforms = _load_transforms(config.get('transforms'))
+    transforms = _load_transforms(config.get('transforms'))
 
     return BlueskyMongoCatalog(metadatastore_db, asset_registry_db,
                                handler_registry=handler_registry,
@@ -1656,11 +1654,35 @@ _mongo_clients = {}  # cache of pymongo.MongoClient instances
 
 
 def _load_transforms(transforms):
-    from importlib import import_module
-    if transforms:
-        return {key: import_module(value) for key, value in transforms}
-    else:
-        return None
+     """
+     Parse mapping of spec name to 'import path' into mapping to class itself.
+
+     Parameters
+     ----------
+     transforms : dict or None
+         Values may be string 'import paths' to classes or actual classes.
+
+     Examples
+     --------
+     Pass in name; get back actual class.
+
+     >>> _load_transforms({'descriptor': 'package.module.ClassName'})
+     {'descriptor': <package.module.ClassName>}
+
+     """
+     if transforms is None:
+        transforms = {}
+     result = {}
+
+     for name in ('start', 'stop', 'resource', 'descriptor'):
+         transform = transforms.get(name)
+         if isinstance(transform, str):
+             module_name, _, class_name = transform.rpartition('.')
+             class_ = getattr(importlib.import_module(module_name), class_name)
+         else:
+             class_ = lambda doc: doc
+         result[name] = class_
+     return result
 
 
 def _get_mongo_client(host, port):
