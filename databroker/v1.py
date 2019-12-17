@@ -1672,6 +1672,9 @@ def _load_transforms(transforms):
      """
      result = {}
 
+     if 'event' in transforms.keys() or 'datum' in transforms.keys():
+        raise NotImplementedError("Transforms for events and datum are not supported."
+
      for name in ('start', 'stop', 'resource', 'descriptor'):
          transform = transforms.get(name)
          if isinstance(transform, str):
