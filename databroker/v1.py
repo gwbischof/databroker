@@ -1671,17 +1671,14 @@ def _load_transforms(transforms):
 
      """
      if transforms is None:
-        transforms = {}
+        return {}
+
      result = {}
 
-     for name in ('start', 'stop', 'resource', 'descriptor'):
-         transform = transforms.get(name)
-         if isinstance(transform, str):
-             module_name, _, class_name = transform.rpartition('.')
-             class_ = getattr(importlib.import_module(module_name), class_name)
-         else:
-             class_ = lambda doc: doc
-         result[name] = class_
+     for name, transform in transforms.items():
+         module_name, _, class_name = transform.rpartition('.')
+         function = getattr(importlib.import_module(module_name), class_name)
+         result[name] = function
      return result
 
 
