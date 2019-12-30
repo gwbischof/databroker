@@ -26,7 +26,11 @@ import xarray
 from .intake_xarray_core.base import DataSourceMixin
 from .intake_xarray_core.xarray_container import RemoteXarray
 from collections import deque
+from intake.catalog.local import LocalCatalogEntry
 
+from pyinstrument import Profiler
+
+profiler = Profiler()
 
 class PartitionIndexError(IndexError):
     ...
@@ -722,6 +726,45 @@ class RemoteBlueskyRun(intake.catalog.base.RemoteCatalog):
         raise NotImplementedError("Cannot search within one run.")
 
 
+import time
+def timeit(f):
+    def wrap(*args):
+        time1 = time.time()
+        ret = f(*args)
+        time2 = time.time()
+        print('{:s} function took {:.3f} ms'.format(f.__name__, (time2-time1)*1000.0))
+        return ret
+    return wrap
+
+
+class BlueskyLocalCatalogEntry(LocalCatalogEntry):
+
+    def __new__(cls, *args, **kwargs):
+        """Capture creation args when instantiating"""
+        from dask.base import tokenize
+        o = object.__new__(cls)
+        o._captured_init_args = args
+        o._captured_init_kwargs = kwargs
+        state = o.__getstate__()
+        o.__dict__['_tok'] = tokenize(state)
+        return o
+
+class ArgsDict(dict):
+    ...
+
+from dask.base import tokenize, normalize_token
+@normalize_token.register(ArgsDict)
+def tokenize_dict(args):
+    return (descriptor['uid'] for descriptor in args['metadata']['descriptors'])
+
+class MetaDict(dict):
+    ...
+
+@normalize_token.register(MetaDict)
+def tokenize_dict(meta):
+    return (descriptor['uid'] for descriptor in meta['descriptors'])
+
+
 class BlueskyRun(intake.catalog.Catalog):
     """
     Catalog representing one Run.
@@ -804,7 +847,6 @@ class BlueskyRun(intake.catalog.Catalog):
                  **kwargs):
         # All **kwargs are passed up to base class. TODO: spell them out
         # explicitly.
-        self.urlpath = ''  # TODO Not sure why I had to add this.
 
         self._get_run_start = get_run_start
         self._get_run_stop = get_run_stop
@@ -843,6 +885,63 @@ class BlueskyRun(intake.catalog.Catalog):
             out = f"<Intake catalog: Run *REPR_RENDERING_FAILURE* {exc!r}>"
         return out
 
+    def one(self):
+        # Make a BlueskyEventStream for each stream_name.
+        for doc in self._descriptors:
+            if 'name' not in doc:
+                warnings.warn(
+                    f"EventDescriptor {doc['uid']!r} has no 'name', likely "
+                    f"because it was generated using an old version of "
+                    f"bluesky. The name 'primary' will be used.")
+
+    def two(self):
+        descriptors_by_name = collections.defaultdict(list)
+        for doc in self._descriptors:
+            descriptors_by_name[doc.get('name', 'primary')].append(doc)
+        return descriptors_by_name
+
+    def three(self, descriptors_by_name):
+
+        def get_args():
+            return ArgsDict(
+                get_run_start=self._get_run_start,
+                stream_name=stream_name,
+                get_run_stop=self._get_run_stop,
+                get_event_descriptors=self._get_event_descriptors,
+                get_event_pages=self._get_event_pages,
+                get_event_count=self._get_event_count,
+                get_resource=self._get_resource,
+                lookup_resource_for_datum=self._lookup_resource_for_datum,
+                get_datum_pages=self._get_datum_pages,
+                fillers=self.fillers,
+                transforms=self._transforms,
+                metadata=({'descriptors': descriptors,
+                           'resources': self._resources}))
+
+        #print("GET ENTRIES")
+        for stream_name, descriptors in descriptors_by_name.items():
+            for descriptor in descriptors:
+                print(type(descriptor))
+            a = time.time()
+            args = get_args()
+            b = time.time()
+            #print(stream_name, descriptors)
+            #print("GET ARG", b-a)
+            self._entries[stream_name] = LocalCatalogEntry(
+                name=stream_name,
+                description={},  # TODO
+                driver=BlueskyEventStream,
+                direct_access='forbid',
+                args=args,
+                cache=None,  # What does this do?
+                metadata=MetaDict({'descriptors': descriptors,
+                                  'resources': self._resources}),
+                catalog_dir=None,
+                getenv=True,
+                getshell=True,
+                catalog=self)
+
+    @timeit
     def _load(self):
         # Count the total number of documents in this run.
         self._run_start_doc = self._transforms['start'](self._get_run_start())
@@ -868,44 +967,10 @@ class BlueskyRun(intake.catalog.Catalog):
             npartitions=self.npartitions,
             metadata=self.metadata)
 
-        # Make a BlueskyEventStream for each stream_name.
-        for doc in self._descriptors:
-            if 'name' not in doc:
-                warnings.warn(
-                    f"EventDescriptor {doc['uid']!r} has no 'name', likely "
-                    f"because it was generated using an old version of "
-                    f"bluesky. The name 'primary' will be used.")
-        descriptors_by_name = collections.defaultdict(list)
-        for doc in self._descriptors:
-            descriptors_by_name[doc.get('name', 'primary')].append(doc)
-        for stream_name, descriptors in descriptors_by_name.items():
-            args = dict(
-                get_run_start=self._get_run_start,
-                stream_name=stream_name,
-                get_run_stop=self._get_run_stop,
-                get_event_descriptors=self._get_event_descriptors,
-                get_event_pages=self._get_event_pages,
-                get_event_count=self._get_event_count,
-                get_resource=self._get_resource,
-                lookup_resource_for_datum=self._lookup_resource_for_datum,
-                get_datum_pages=self._get_datum_pages,
-                fillers=self.fillers,
-                transforms=self._transforms,
-                metadata={'descriptors': descriptors,
-                          'resources': self._resources})
-            self._entries[stream_name] = intake.catalog.local.LocalCatalogEntry(
-                name=stream_name,
-                description={},  # TODO
-                driver='databroker.core.BlueskyEventStream',
-                direct_access='forbid',
-                args=args,
-                cache=None,  # What does this do?
-                metadata={'descriptors': descriptors,
-                          'resources': self._resources},
-                catalog_dir=None,
-                getenv=True,
-                getshell=True,
-                catalog=self)
+        self.one()
+        res = self.two()
+        self.three(res)
+
 
     def get(self, *args, **kwargs):
         """
@@ -1001,6 +1066,11 @@ class BlueskyRun(intake.catalog.Catalog):
             "its entries, representing individual Event Streams. You can see "
             "the entries using list(YOUR_VARIABLE_HERE). Tab completion may "
             "also help, if available.")
+
+
+@normalize_token.register(BlueskyRun)
+def tokenize_dict(run):
+    return ()
 
 
 class BlueskyEventStream(DataSourceMixin):
@@ -1213,6 +1283,10 @@ s event_page documents
         return intake.container.base.get_partition(self.url, self.http_args,
                                              self._source_id, self.container,
                                              partition)
+
+@normalize_token.register(BlueskyEventStream)
+def tokenize_dict(run):
+    return ()
 
 class RemoteBlueskyEventStream(RemoteXarray):
     # Because of the container_map, when working in remote mode, when accessing
