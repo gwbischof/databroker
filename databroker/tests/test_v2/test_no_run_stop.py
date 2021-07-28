@@ -1,12 +1,12 @@
 # This is a special test because we corrupt the generated data.
 # That is why it does not reuse the standard fixures.
 
-import tempfile
 from suitcase.jsonl import Serializer
-from bluesky import RunEngine
 from bluesky.plans import count
 from ophyd.sim import det
-from databroker._drivers.jsonl import BlueskyJSONLCatalog
+from tiled.client import from_tree
+
+from ... import from_files
 
 
 def test_no_stop_document(RE, tmpdir):
@@ -25,6 +25,7 @@ def test_no_stop_document(RE, tmpdir):
 
     RE(count([det]), insert_all_except_stop)
     serializer.close()
-    catalog = BlueskyJSONLCatalog(f'{directory}/*.jsonl')
-    assert catalog[-1].metadata['start'] is not None
-    assert catalog[-1].metadata['stop'] is None
+    service = from_files.Tree.from_directory(directory)
+    client = from_tree(service)
+    assert client[-1].metadata['start'] is not None
+    assert client[-1].metadata['stop'] is None

@@ -2,7 +2,6 @@ import collections
 import event_model
 import itertools
 from bluesky.plans import count
-from intake.catalog.utils import RemoteCatalogError
 import numpy
 import ophyd.sim
 import os
