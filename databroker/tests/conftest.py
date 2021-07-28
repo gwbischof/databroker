@@ -6,8 +6,8 @@ import ujson
 from databroker.tests.utils import (build_sqlite_backed_broker,
                                     build_pymongo_backed_broker,
                                     build_hdf5_backed_broker,
-                                    build_intake_jsonl_backed_broker,
-                                    build_intake_mongo_backed_broker,
+                                    build_tiled_jsonl_backed_broker,
+                                    build_tiled_mongo_backed_broker,
                                     # build_intake_mongo_embedded_backed_broker,
                                     build_client_backend_broker,
                                     start_md_server,
@@ -33,8 +33,8 @@ if sys.version_info >= (3, 5):
 param_map = {'sqlite': build_sqlite_backed_broker,
              'mongo': build_pymongo_backed_broker,
              'hdf5': build_hdf5_backed_broker,
-             'intake_jsonl': build_intake_jsonl_backed_broker,
-             'intake_mongo': build_intake_mongo_backed_broker,
+             'tiled_jsonl': build_tiled_jsonl_backed_broker,
+             'tiled_mongo': build_tiled_mongo_backed_broker,
              # 'intake_mongo_embedded': build_intake_mongo_embedded_backed_broker,
              }
 params = [
@@ -43,8 +43,8 @@ params = [
     pytest.param('sqlite', marks=pytest.mark.flaky(reruns=5, reruns_delay=2)),
     'mongo',
     'hdf5',
-    'intake_jsonl',
-    'intake_mongo']
+    'tiled_jsonl',
+    'tiled_mongo']
 if os.environ.get('INCLUDE_V0_SERVICE_TESTS') == '1':
     param_map['client'] = build_client_backend_broker
     params.append('client')

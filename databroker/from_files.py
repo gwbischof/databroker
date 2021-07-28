@@ -62,9 +62,9 @@ class Tree(FileTree):
     specs = ["CatalogOfBlueskyRuns"]
 
     @classmethod
-    def from_directory(cls, directory):
+    def from_directory(cls, directory, **kwargs):
 
-        tree = MongoNormalizedTree.from_mongomock()
+        tree = MongoNormalizedTree.from_mongomock(**kwargs)
         jsonl_reader = JSONLReader(tree)
         msgpack_reader = MsgpackReader(tree)
         mimetypes_by_file_ext = {
