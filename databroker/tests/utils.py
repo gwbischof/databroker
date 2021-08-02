@@ -27,7 +27,7 @@ def build_tiled_jsonl_backed_broker(request):
         tmp_dir.cleanup()
 
     request.addfinalizer(teardown)
-    broker = from_files.Tree(
+    broker = from_files.Tree.from_directory(
         f"{tmp_dir.name}/*.jsonl",
         handler_registry={'NPY_SEQ': ophyd.sim.NumpySeqHandler})
     return broker.v1
