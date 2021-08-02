@@ -1,6 +1,7 @@
 from collections import defaultdict
 from datetime import datetime
 import pandas
+import pymongo
 import re
 import warnings
 import time
@@ -1440,6 +1441,50 @@ def _pretty_print_time(timestamp):
 class InvalidConfig(Exception):
     """Raised when the configuration file is invalid."""
     ...
+
+
+_mongo_clients = {}  # cache of pymongo.MongoClient instances
+
+
+def _get_mongo_database(config):
+    """
+    Return a MongoClient.database. Use a cache in order to reuse the
+    MongoClient.
+    """
+    # Check that config contains either uri, or host/port, but not both.
+    if {'uri', 'host'} <= set(config) or {'uri', 'port'} <= set(config):
+        raise InvalidConfig(
+            "The config file must define either uri, or host/port, but not both.")
+
+    uri = config.get('uri')
+    database = config['database']
+
+    # If this statement is True then uri does not exist in the config.
+    # If the config has username and password, turn it into a uri.
+    # This is only here for backward compatibility.
+    if {'mongo_user', 'mongo_pwd', 'host', 'port'} <= set(config):
+        uri = (f"mongodb://{config['mongo_user']}:{config['mongo_pwd']}@"
+               f"{config['host']}:{config['port']}/")
+
+    if uri:
+        if 'authsource' in config:
+            uri += f'?authsource={config["authsource"]}'
+
+        try:
+            client = _mongo_clients[uri]
+        except KeyError:
+            client = pymongo.MongoClient(uri)
+            _mongo_clients[uri] = client
+    else:
+        host = config.get('host')
+        port = config.get('port')
+        try:
+            client = _mongo_clients[(host, port)]
+        except KeyError:
+            client = pymongo.MongoClient(host, port)
+            _mongo_clients[(host, port)] = client
+
+    return client[database]
 
 
 class _GetDocumentsRouter:
