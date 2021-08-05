@@ -9,12 +9,14 @@ import pytest
 import ophyd.sim
 import tzlocal
 
+from databroker import Broker
 from databroker import v0, v1
 from databroker.headersource import HeaderSourceShim
 from databroker.eventsource import EventSourceShim
 import suitcase.jsonl
 import suitcase.mongo_normalized
 import suitcase.mongo_embedded
+from tiled.client import from_tree
 
 from .. import from_files
 from .. import mongo_normalized
@@ -27,10 +29,11 @@ def build_tiled_jsonl_backed_broker(request):
         tmp_dir.cleanup()
 
     request.addfinalizer(teardown)
-    broker = from_files.Tree.from_directory(
+    tree = from_files.Tree.from_directory(
         f"{tmp_dir.name}/*.jsonl",
         handler_registry={'NPY_SEQ': ophyd.sim.NumpySeqHandler})
-    return broker.v1
+    client = from_tree(tree)
+    return Broker(client).v1
 
 
 def build_tiled_mongo_backed_broker(request):
@@ -41,11 +44,12 @@ def build_tiled_mongo_backed_broker(request):
         client.close()
 
     request.addfinalizer(teardown)
-    broker = mongo_normalized.Tree(
+    tree = mongo_normalized.Tree(
         client['mds'],
         client['assets'],
         handler_registry={'NPY_SEQ': ophyd.sim.NumpySeqHandler})
-    return broker.v1
+    client = from_tree(tree)
+    return Broker(client).v1
 
 
 def build_intake_mongo_embedded_backed_broker(request):

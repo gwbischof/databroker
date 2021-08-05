@@ -80,12 +80,17 @@ class Tree(FileTree):
             readers_by_mimetype=readers_by_mimetype,
             mimetypes_by_file_ext=mimetypes_by_file_ext,
             key_from_filename=key_from_filename,
+            error_if_missing=False,
             tree=tree,
         )
 
     def __init__(self, *args, tree, **kwargs):
         self._tree = tree
         super().__init__(*args, **kwargs)
+
+    @property
+    def database(self):
+        return self._tree.database
 
     def new_variation(self, **kwargs):
         return super().new_variation(tree=self._tree, **kwargs)
